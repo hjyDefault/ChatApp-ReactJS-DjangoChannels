@@ -1,0 +1,126 @@
+.Login_form_field {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3vh;
+  }
+  
+  .login_background_image {
+    filter: brightness(40%);
+    background-image: url("https://coolbackgrounds.io/images/backgrounds/index/ranger-4df6c1b6.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    width: 100vw;
+    position: absolute;
+    height: 100vh;
+  }
+  .navbar_container{
+    width: 98%;
+    height: 98%;
+  }
+  
+  .navbar_title{
+    color: rgb(209, 211, 213);
+    font-size: 50px;
+    position: absolute;
+    top: 1.5%;
+    font-family:  "Quicksand", sans-serif;
+    left: 5%;
+  }
+  
+  .login_heading{
+    color: white;
+    font-size: 60px;
+    text-align: center;
+    font-family:  "Quicksand", sans-serif;
+  }
+  
+  .Login_container{
+    position: absolute;
+    top: 20%;
+    left: 30%;
+  }
+  .Login_container h1 {
+    animation: fadeIn 3s infinite alternate;
+  }
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+  }
+  
+  
+  .login_text {
+    color: white;
+    font-size: 25px;
+    text-align: center;
+  }
+  
+  
+  .Login_input {
+    padding: 1.2vw;
+    border-radius: 5px;
+    border: none;
+    width: 30vw;
+  }
+  .Login_input:focus {
+    border: none;
+    outline: none;
+  }
+  
+  
+  .Login_input_container {
+    position: absolute;
+    top: 47%;
+    right: 36%;
+  }
+  
+  .Login_input_container1 {
+    position: absolute;
+    top: 56%;
+    right: 36%;
+  }
+  
+  
+  .navbar_signup {
+    background-color: rgb(0, 132, 255);
+    position: absolute;
+    color: white;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    padding-top: 0.5vw;
+    padding-bottom: 0.5vw;
+    padding-left: 0.9vw;
+    padding-right: 0.9vw;
+    border-radius: 0.2vw;
+  }
+  
+  
+  .login_btn {
+    position: absolute;
+    top: 68vh;
+    left: 45%;
+    width: 8%;
+    padding: 0.7vw;
+    background-color: rgb(0, 132, 255);
+    border: none;
+    border-radius: 0.8vh;
+    color: white;
+    font-size: large;
+    cursor: pointer;
+  }
+  
+  
+  .buttonClass {
+    font-family: "Source Sans Pro", sans-serif;
+    letter-spacing: 0.3px;
+  }
+  
+  .navbar_right {
+    position: absolute;
+    top: 4%;
+    left: 90%;
+  }
