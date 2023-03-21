@@ -1,3 +1,4 @@
+import datetime
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -21,3 +22,5 @@ class Group(models.Model):
         
 class CustomUser(User):
     profilepic = models.URLField(max_length=500)
+    online_status = models.BooleanField(default=False)
+    last_seen = models.DateTimeField(default=datetime.datetime.now())

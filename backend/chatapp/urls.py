@@ -7,6 +7,7 @@ urlpatterns = [
     path('getMessages/',get_all_messages),
     path('user/getUser',get_user),
     path('user/login',login),
-    path('saveMessage',save_message)
+    path('saveMessage',save_message),
+    path('user/online-users/',get_online_users)
 
 ]

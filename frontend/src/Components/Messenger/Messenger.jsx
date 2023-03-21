@@ -9,11 +9,8 @@ import { API_BASE_URL,WS_BASE_URL } from "../../Constants";
 import { TextField } from "@mui/material";
 
 export default function Messenger() {
-  const mock_user_obj = {
-    'id':2 ,
-    'username':'harprit2',
-    'profilepic':''
-  }
+
+
   const location = useLocation();
   const userId = location.pathname.split("/")[2];
   const [conversations, setConversations] = useState([]);
@@ -21,10 +18,17 @@ export default function Messenger() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [currentUser,setCurrentUser] = useState(null);
+  const [oppositeUserTyping,setoppositeUserTyping] = useState(false)
   const [socketConnection, setsocketConnection] = useState(null)
+  const [online_status_socket, setOnlineStatusSocket] = useState(null)
+  const [online_users,setOnlineUsers] = useState([])
+  const [isTyping,setIsTyping] = useState(false)
+  const [isonline,setIsOnline] = useState(false)
+  let timeoutId;
 
   const scrollRef = useRef();
   useEffect(() => {    
+
     const getUsers = async() =>{
       const res = await axios.get(API_BASE_URL+'chat/user/allusers')
       // console.log(res['data']['result'])
@@ -32,13 +36,37 @@ export default function Messenger() {
     }
     const getCurrentUser = async() =>{
       const res = await axios.post(API_BASE_URL+'chat/user/getUser',{'userid':userId})
-      console.log(res['data'])
       setCurrentUser(res['data'])
     }
+    const connectOnlineStatusSocket = async() =>{
+        let online_status_socket = new WebSocket(WS_BASE_URL+'chat/ac/online_status/')
+        setOnlineStatusSocket(online_status_socket)
+    }
+
+    const getOnlineUsers = async() => {
+      const res = await axios.get(API_BASE_URL+'chat/user/online-users/')
+      const data = JSON.parse(res['data'])
+      
+      let online_user_ids = []
+      console.log(typeof(data))
+      console.log(data)
+      for(let i=0;i<data.length;i++)
+      {
+         let userid = data[i]['id']
+         online_user_ids.push(userid)
+      }
+      setOnlineUsers(online_user_ids)
+      console.log(online_users)
+    }
+
     getCurrentUser()
     getUsers()
-    
+    connectOnlineStatusSocket()
+    getOnlineUsers()
   }, [])
+
+
+  
 
   const getUniqueConversationGroup = () => {
     let username1 = currentUser.username
@@ -79,6 +107,17 @@ export default function Messenger() {
       let messages_json_data = JSON.parse(res['data'])
       setMessages(messages_json_data)
     } 
+
+    const change_status = async() => {
+      if(online_users.includes(currentChat.id))
+      {
+        setIsOnline("Online")
+      }
+      else {
+        setIsOnline("Offline")
+      }
+    }
+    change_status()
     getMessages()
 
   }, [currentChat])
@@ -86,8 +125,6 @@ export default function Messenger() {
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);  
-
-  // const socket = new WebSocket("ws://localhost:8000/ws/chat/sc")
 
   if (socketConnection)
   {
@@ -97,7 +134,13 @@ export default function Messenger() {
     
     socketConnection.onmessage = (event) => {
       let json_incoming_message_data = JSON.parse(event.data)
-      setMessages([...messages,json_incoming_message_data])
+      if (json_incoming_message_data['message_type']=='userMessage')
+        setMessages([...messages,json_incoming_message_data])
+      else 
+      {
+        if (json_incoming_message_data['user']!=userId)
+          setoppositeUserTyping(json_incoming_message_data['typing'])
+      }
     };
     
     socketConnection.onclose = () => {
@@ -105,11 +148,54 @@ export default function Messenger() {
     };
   }
 
+
+  if (online_status_socket)
+  {
+    online_status_socket.onopen = () => {
+      console.log("Online Status connection opened");
+      online_status_socket.send(JSON.stringify({'userid':userId,'type':'OPEN','message_type':'connection_status'}))
+    };
+    online_status_socket.onmessage = (event) => {
+        let data = JSON.parse(event.data)
+        console.log("Receiving on online status socket : "+data['user_status']+" "+data['user_id'])
+        let temp_online_users = online_users
+        if(data['user_status']==false)
+        {
+          if(online_users.includes(data['user_id']))
+          {            
+             const index = temp_online_users.indexOf(data['user_id'])
+             temp_online_users.splice(index,1)
+          }
+        }
+        else if (data['user_status']==true)
+           temp_online_users.push(data['user_id'])
+        setOnlineUsers(online_users)
+        
+        if(currentChat)
+        {
+           if(online_users.includes(currentChat.id))
+           {
+            setIsOnline("Online")
+           }
+           else {
+            setIsOnline("Offline")
+           }
+        }
+
+     }
+    online_status_socket.onclose = () => {
+      console.log("Online Status socket closed")
+      online_status_socket.send(JSON.stringify({'userid':userId,'type':'CLOSE'}))
+
+    }
+  }
+
   const handleSubmit = async(e) => {
 
       e.preventDefault()
 
       const message = {
+        message_type : "userMessage",
         message_by : currentUser.id,
         received_by:currentChat.id,
         text:newMessage
@@ -127,6 +213,30 @@ export default function Messenger() {
       }))
   } 
 
+  function handleKeyDown() {
+    setIsTyping(true);
+    clearTimeout(timeoutId);
+  }
+
+  function handleKeyUp() {
+    timeoutId = setTimeout(() => setIsTyping(false), 300);
+  }
+
+  useEffect(() => {
+    const changeTypingStatus = async() =>{
+      let data = {
+        "message_type":"typing",
+        "user":userId,
+        "typing":isTyping
+      }
+      socketConnection.send(JSON.stringify({msg:data}))
+    }
+    changeTypingStatus()
+    
+  }, [isTyping])
+  
+
+
   return (
     <>
       <div className="messenger">
@@ -134,7 +244,7 @@ export default function Messenger() {
           <div className="chatMenuWrapper">
             <div className="availableChats">People</div>
             {currentUser && conversations.map((c) => (
-              <div onClick={() => setCurrentChat(c)}>
+              <div onClick={() => {setCurrentChat(c); setIsOnline(c.online_status)}}>
                 {c.id!=currentUser.id && <Conversation currentUser={c} />}
               </div>
             ))}
@@ -146,7 +256,8 @@ export default function Messenger() {
               <>
               <div className="userInfo">
                 <img className="userProfilePic" src={currentChat.profilepic}/>
-                {currentChat.username}
+                {currentChat.username}<br/>
+                {isonline}
               </div>
                 <div className="chatBoxTop">
                   {messages.map((m) => (
@@ -155,11 +266,16 @@ export default function Messenger() {
                     </div>
                   ))}
                 </div>
+                {oppositeUserTyping && <div>Typing</div>}
                 <div className="chatBoxBottom">
-                  <TextField  
+                  <input  
                   className="chatMessageInput"
                   placeholder="Message"
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                  }}
+                  onKeyDown = {handleKeyDown}
+                  onKeyUp = {handleKeyUp}
                   value={newMessage}
                   />
                   <button onClick={handleSubmit}>

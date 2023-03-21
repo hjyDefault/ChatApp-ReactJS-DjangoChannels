@@ -9,5 +9,5 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields=['id','username','profilepic']
+        fields=['id','username','profilepic','online_status']
         

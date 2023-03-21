@@ -56,12 +56,14 @@ def login(request):
         username = request.POST["userName"]
         password = request.POST["password"]
         try:
-            currentuser = authenticate(username=username, password=password)
+            print(username)
+            print(password)
+            # currentuser = authenticate(username=username, password=password)
             # print(currentuser)
-            cur_user = CustomUser.objects.get(id=currentuser.id)
-            print('Line 62')
+            cur_user = CustomUser.objects.get(username=username,password=password)
             cur_user = UserSerializer(cur_user)
             cur_user_json = json.dumps(cur_user.data)
+            currentuser = cur_user
             if currentuser is not None:
                 return JsonResponse(cur_user_json, safe=False)
             else:
@@ -100,3 +102,11 @@ def get_unique_group_name(user1,user2):
     else :
         unique_group_name = user2.username+"_"+user1.username+"_"+str(user2.id)+"_"+str(user1.id)
     return unique_group_name        
+
+@csrf_exempt
+def get_online_users(request):
+    online_users = CustomUser.objects.filter(online_status=True)
+    online_users = UserSerializer(online_users,many=True)
+    online_users = online_users.data 
+    json_data = json.dumps(online_users)
+    return JsonResponse(json_data,safe=False)

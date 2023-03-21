@@ -1,7 +1,12 @@
 import datetime
 from channels.consumer import SyncConsumer,AsyncConsumer
+
+from chatapp.serializers import UserSerializer
+from .models import CustomUser
 from asgiref.sync import async_to_sync
 import json
+from django.contrib.auth.models import User
+from channels.db import database_sync_to_async
 
 from chatapp.models import ChatMessage, Group 
 class MyConsumerSync(SyncConsumer):
@@ -94,7 +99,7 @@ class MyConsumerDynamicSync(SyncConsumer):
         print('Websocket connection closed')
         async_to_sync(self.channel_layer.group_discard)(self.group_name,self.channel_name)
 
-class MyConsumerDynamicASync(AsyncConsumer):
+class ChatConsumer(AsyncConsumer):
 
     async def websocket_connect(self,event):
         print('Websocket connected')
@@ -114,12 +119,21 @@ class MyConsumerDynamicASync(AsyncConsumer):
     async def websocket_receive(self,event):
         print('Websocket Receiving..',event)
         json_incoming_data = json.loads(event['text'])
-        message_object = {
-            'message_content':json_incoming_data['msg']['text'],
-            'message_by':json_incoming_data['msg']['message_by'],
-            'received_by':json_incoming_data['msg']['received_by'],
-            'timestamp':str(datetime.datetime.now())
-        }
+
+        if json_incoming_data['msg']['message_type']=='userMessage':
+            message_object = {
+                'message_type':'userMessage',
+                'message_content':json_incoming_data['msg']['text'],
+                'message_by':json_incoming_data['msg']['message_by'],
+                'received_by':json_incoming_data['msg']['received_by'],
+                'timestamp':str(datetime.datetime.now())
+            }
+        else :
+            message_object = {
+                'message_type':'typing',
+                'user':json_incoming_data['msg']['user'],
+                'typing':json_incoming_data['msg']['typing']
+            }
         await self.channel_layer.group_send(self.group_name,{
             'type':'chat.message',
             'message':json.dumps(message_object)
@@ -136,3 +150,50 @@ class MyConsumerDynamicASync(AsyncConsumer):
     async def websocket_disconnect(self,event):
         print('Websocket connection closed')
         await self.channel_layer.group_discard(self.group_name,self.channel_name)
+    
+class OnlineStatusConsumer(AsyncConsumer):
+
+    async def websocket_connect(self,event):
+        self.group_name = "Online_Users"
+        print("Adding user to online users")
+        await self.channel_layer.group_add(self.group_name,self.channel_name)
+        await self.send({
+            'type':'websocket.accept'
+        })
+
+    async def websocket_disconnect(self,event):
+        print("Removing user to online users")
+        # print(self.channel_name)
+        await self.change_online_status(self.userid,"CLOSE")
+        await self.channel_layer.group_discard(self.group_name,self.channel_name)
+
+    async def websocket_receive(self,event):
+        json_incoming_data = json.loads(event['text'])
+        connection_type = json_incoming_data['type']
+        userid = json_incoming_data['userid']
+        self.userid = userid
+        await self.change_online_status(userid,connection_type)
+
+    @database_sync_to_async
+    def change_online_status(self,userid,connection_type):
+        customuser = CustomUser.objects.get(id=userid)
+        if connection_type == 'OPEN':
+            print('Changing Status to Online')
+            customuser.online_status = True
+            customuser.save()
+        else : 
+            print('Changing Status to Offline')
+            customuser.online_status = False
+            customuser.last_seen = datetime.datetime.now()
+            customuser.save()
+
+
+    async def send_user_status(self,event):
+        data = json.loads(event.get('value'))
+        userid = data['user_id']
+        online_status = data['user_status']
+        username = data['user_name']
+        await self.send({
+            'type':'websocket.send',
+            'text':json.dumps({'user_id':userid, 'user_status': online_status, 'user_name':username})})
+        
