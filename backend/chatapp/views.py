@@ -2,11 +2,15 @@ import datetime
 import json
 from rest_framework.parsers import JSONParser
 from django.shortcuts import render
+from django.core.files.storage import default_storage
 from .models import CustomUser, Group,ChatMessage
 from django.views.decorators.csrf import csrf_exempt
 from .serializers import ChatMessageSerializer, UserSerializer
 from django.contrib.auth.models import User
 from django.http import JsonResponse
+from .utils import get_file_extension,generate_random_string,get_file_name_without_extension
+from .constants import BASE_SERVER_MEDIA_URL
+import random
 from django.contrib.auth import authenticate
 # Create your views here.
 def index(request):
@@ -74,26 +78,59 @@ def login(request):
 
 @csrf_exempt
 def save_message(request):
-    message_json = request.body.decode('utf8').replace("'",'"')
-    message_native = json.loads(message_json)
-    user1_id = message_native['message_by']
-    user2_id = message_native['received_by']
+    if request.method=='POST':
+        user1_id = request.POST.get('message_by')
+        user2_id = request.POST.get('received_by')
 
-    user1 = CustomUser.objects.get(id=user1_id)
-    user2 = CustomUser.objects.get(id=user2_id)
+        user1 = CustomUser.objects.get(id=user1_id)
+        user2 = CustomUser.objects.get(id=user2_id)
 
-    unique_group_id = get_unique_group_name(user1,user2)
+        unique_group_id = get_unique_group_name(user1,user2)
 
-    group = Group.objects.filter(unique_id=unique_group_id).first()
+        group = Group.objects.filter(unique_id=unique_group_id).first()
 
-    if group is None:
-        group = Group(name=unique_group_id,unique_id=unique_group_id,user1=user1,user2=user2)
-        group.save()
+        if group is None:
+            group = Group(name=unique_group_id,unique_id=unique_group_id,user1=user1,user2=user2)
+            group.save()
+
+        message_type = request.POST.get('type')
+
+        chat_message = None
+        if message_type=='file':
+            file_input = request.FILES.get('file')
+            file_name = file_input.name
+            file_extension = get_file_extension(file_name)
+            file_name = get_file_name_without_extension(file_name)
+            file_name = unique_group_id+"_"+file_name+"_"+generate_random_string()+"."+file_extension
+            default_storage.save(file_name,file_input)
+            file_link = BASE_SERVER_MEDIA_URL + file_name
+            chat_message = ChatMessage(message_content=file_link,timestamp=str(datetime.datetime.now()),message_by=user1,group=group,message_type="file",file_type=file_extension)
+        elif message_type=='text_message':
+            text_message = request.POST.get('text')        
+            chat_message = ChatMessage(message_content=text_message,timestamp=str(datetime.datetime.now()),message_by=user1,group=group,message_type="text")
+        chat_message.save()
+
+        return JsonResponse("Received",safe=False)
+    # message_json = request.body.decode('utf8').replace("'",'"')
+    # message_native = json.loads(message_json)
+    # user1_id = message_native['message_by']
+    # user2_id = message_native['received_by']
+
+    # user1 = CustomUser.objects.get(id=user1_id)
+    # user2 = CustomUser.objects.get(id=user2_id)
+
+    # unique_group_id = get_unique_group_name(user1,user2)
+
+    # group = Group.objects.filter(unique_id=unique_group_id).first()
+
+    # if group is None:
+    #     group = Group(name=unique_group_id,unique_id=unique_group_id,user1=user1,user2=user2)
+    #     group.save()
     
-    chat_message = ChatMessage(message_content=message_native['text'],timestamp=str(datetime.datetime.now()),message_by=user1,group=group)
-    chat_message.save()
+    # chat_message = ChatMessage(message_content=message_native['text'],timestamp=str(datetime.datetime.now()),message_by=user1,group=group)
+    # chat_message.save()
 
-    return JsonResponse("Received",safe=False)
+    # return JsonResponse("Received",safe=False)
 
 def get_unique_group_name(user1,user2):
     unique_group_name=None

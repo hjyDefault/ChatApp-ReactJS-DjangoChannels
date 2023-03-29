@@ -130,7 +130,7 @@ class ChatConsumer(AsyncConsumer):
             }
         else :
             message_object = {
-                'message_type':'typing',
+                'websocket_message_type':'typing',
                 'user':json_incoming_data['msg']['user'],
                 'typing':json_incoming_data['msg']['typing']
             }
@@ -140,12 +140,19 @@ class ChatConsumer(AsyncConsumer):
         })
 
     async def chat_message(self,event):
-        print("In chat message of async : ",event)
+        # print("In chat message of async : ",event)
         await self.send({
             'type':'websocket.send',
             'text':event['message']
         })
 
+    async def send_chat_message(self,event):
+        data = json.loads(event['value'])
+        data['websocket_message_type']='userMessage'
+        await self.send({
+            'type':'websocket.send',
+            'text':json.dumps(data)
+        })
 
     async def websocket_disconnect(self,event):
         print('Websocket connection closed')
@@ -162,8 +169,7 @@ class OnlineStatusConsumer(AsyncConsumer):
         })
 
     async def websocket_disconnect(self,event):
-        print("Removing user to online users")
-        # print(self.channel_name)
+        # print("Removing user to online users")
         await self.change_online_status(self.userid,"CLOSE")
         await self.channel_layer.group_discard(self.group_name,self.channel_name)
 
@@ -178,11 +184,11 @@ class OnlineStatusConsumer(AsyncConsumer):
     def change_online_status(self,userid,connection_type):
         customuser = CustomUser.objects.get(id=userid)
         if connection_type == 'OPEN':
-            print('Changing Status to Online')
+            # print('Changing Status to Online')
             customuser.online_status = True
             customuser.save()
         else : 
-            print('Changing Status to Offline')
+            # print('Changing Status to Offline')
             customuser.online_status = False
             customuser.last_seen = datetime.datetime.now()
             customuser.save()

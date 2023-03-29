@@ -1,8 +1,9 @@
 import { useState,useEffect } from "react";
+import { saveAs } from "file-saver";
 import "./Message.css";
 // import TimeAgo from "timeago-react";
 import axios from "axios";
-import { API_BASE_URL } from "../../Constants";
+import { API_BASE_URL,IMAGE_FORMATS} from "../../Constants";
 
 export default function Message({ message, own }) {
   const [datetimeString, setdatetimeString] = useState("")
@@ -18,21 +19,14 @@ export default function Message({ message, own }) {
     getUser()
     
   }, [])
-  
-  
-  // useEffect(() => {
-  //   const setDateTimeOfMessage = () =>
-  //   {
-  //       let timestamp = message.timestamp
-  //       // Timestamp is of form -> "2023-01-31T16:42:07.558701Z"
-  //       let splitted_by_space = timestamp.split(' ')
-  //       let date_from_str = splitted_by_space[0]
-  //       let splitted_time_by_dot = splitted_by_space[1].split('.')[0]
-  //       setdatetimeString(date_from_str+" "+splitted_time_by_dot)
-  //   }
-  //   setDateTimeOfMessage()
-  // }, [message])
-  
+
+  const downloadFile = () =>{
+
+    const fileUrl = message.message_content
+    const filename = fileUrl.substring(fileUrl.lastIndexOf('/') + 1);
+
+    saveAs(fileUrl, filename);
+  }
 
   return (
     <div className={own ? "message own" : "message"}>
@@ -42,7 +36,9 @@ export default function Message({ message, own }) {
           src={user && user.profilepic}
           alt=""
         />
-        <p className="messageText">{message.message_content}</p>
+        {message.message_type=="text" && <p className="messageText">{message.message_content}</p>}
+        {message.message_type=="file" && IMAGE_FORMATS.findIndex(format => format === message.file_type)!=-1 && <img src={message.message_content} className="image_file"/>}
+        {message.message_type=="file" && <><button onClick={downloadFile}><i class="fa-solid fa-download"></i></button></>}
       </div>
       <div className="messageBottom">
         {/* <TimeAgo datetime={datetimeString} locale='en-IN' /> */}

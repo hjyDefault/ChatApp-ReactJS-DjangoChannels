@@ -7,6 +7,8 @@ class ChatMessage(models.Model):
     timestamp = models.DateTimeField()
     message_by = models.ForeignKey(User,on_delete=models.CASCADE,related_name='message_by',null=True)
     group = models.ForeignKey('Group',on_delete=models.CASCADE)
+    message_type = models.CharField(max_length=100)
+    file_type = models.CharField(max_length=5,null=True,default="")
     
     def __str__(self) -> str:
         return self.message_by.username

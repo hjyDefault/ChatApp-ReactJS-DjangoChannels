@@ -6,7 +6,7 @@ import Conversation from "../Conversation/Conversation";
 import userContext from "../../Context/UserContext/UserContext";
 import axios from "axios";
 import { API_BASE_URL,WS_BASE_URL } from "../../Constants";
-import { TextField } from "@mui/material";
+import { AppBar, TextField } from "@mui/material";
 
 export default function Messenger() {
 
@@ -22,6 +22,8 @@ export default function Messenger() {
   const [socketConnection, setsocketConnection] = useState(null)
   const [online_status_socket, setOnlineStatusSocket] = useState(null)
   const [online_users,setOnlineUsers] = useState([])
+  const [isfileselected,setisfileselected] = useState(false)
+  const [selectedfile,setselectedfile] = useState(null)
   const [isTyping,setIsTyping] = useState(false)
   const [isonline,setIsOnline] = useState(false)
   let timeoutId;
@@ -134,8 +136,17 @@ export default function Messenger() {
     
     socketConnection.onmessage = (event) => {
       let json_incoming_message_data = JSON.parse(event.data)
-      if (json_incoming_message_data['message_type']=='userMessage')
-        setMessages([...messages,json_incoming_message_data])
+      console.log(json_incoming_message_data)
+      if (json_incoming_message_data['websocket_message_type']=='userMessage')
+      {
+          var new_incoming_message={
+            'message_by':json_incoming_message_data['message_by']['id'],
+            'message_content':json_incoming_message_data['message_content'],
+            'message_type':json_incoming_message_data['message_type'],
+            'file_type':json_incoming_message_data['file_type']
+          }
+        setMessages([...messages,new_incoming_message])
+      }
       else 
       {
         if (json_incoming_message_data['user']!=userId)
@@ -190,28 +201,7 @@ export default function Messenger() {
     }
   }
 
-  const handleSubmit = async(e) => {
 
-      e.preventDefault()
-
-      const message = {
-        message_type : "userMessage",
-        message_by : currentUser.id,
-        received_by:currentChat.id,
-        text:newMessage
-      }
-
-      try {
-        const res = await axios.post(API_BASE_URL+'chat/saveMessage',message)
-      }catch(err)
-      {
-
-      }
-      setNewMessage("")
-      socketConnection.send(JSON.stringify({
-        msg:message
-      }))
-  } 
 
   function handleKeyDown() {
     setIsTyping(true);
@@ -235,7 +225,58 @@ export default function Messenger() {
     
   }, [isTyping])
   
+  const handleFileChange = (e) => {
+      if(e.target.files.length>0)
+      {
+        setisfileselected(true)
+        let f = e.target.files[0]
+        setselectedfile(f)
+      }
+      else
+      {
+        setisfileselected(false)
+        setselectedfile(null)
+      }
+    }
+    const handleSendTextMessage = async(e) => {
 
+      e.preventDefault()
+      let data = new FormData()
+      data.append('text',newMessage)
+      data.append('message_by',currentUser.id)
+      data.append('received_by',currentChat.id)
+      data.append('message_type','userMessage')
+      data.append('type','text_message')
+
+      try {
+        const res = await axios.post(API_BASE_URL+'chat/saveMessage',data)
+      }catch(err)
+      {
+
+      }
+      setNewMessage("")
+      // socketConnection.send(JSON.stringify({
+      //   msg:data
+      // }))
+  } 
+  const handleSendFile = async(e) => {
+    e.preventDefault()
+
+    let data = new FormData()
+    data.append('file',selectedfile)
+    data.append('message_by',currentUser.id)
+    data.append('received_by',currentChat.id)
+    data.append('message_type','userMessage')
+    data.append('type','file')
+
+    const res = await axios.post(API_BASE_URL+'chat/saveMessage',data)
+
+    console.log(res)
+
+    setselectedfile(null)
+    setisfileselected(false)
+
+  }
 
   return (
     <>
@@ -267,20 +308,42 @@ export default function Messenger() {
                   ))}
                 </div>
                 {oppositeUserTyping && <div>Typing</div>}
-                <div className="chatBoxBottom">
-                  <input  
-                  className="chatMessageInput"
-                  placeholder="Message"
-                  onChange={(e) => {
-                    setNewMessage(e.target.value);
-                  }}
-                  onKeyDown = {handleKeyDown}
-                  onKeyUp = {handleKeyUp}
-                  value={newMessage}
-                  />
-                  <button onClick={handleSubmit}>
+
+                  <div className="chatBoxBottom">
+                    {isfileselected && 
+                      <div>
+                        {selectedfile.name}
+                        <button onClick={handleSendFile}>
+                          <i className="fa fa-send-o send-button"></i>
+                        </button>
+                      </div>
+                    }
+                    {
+                    !isfileselected &&    
+                    <>
+                    <label for="file-input">
+                      <i class="fas fa-paperclip"></i> 
+                    </label>
+                    <input id="file-input" type="file" name="file" onChange={handleFileChange}/>
+                    </>
+                    }
+                    {!isfileselected &&
+                    <input  
+                    className="chatMessageInput"
+                    placeholder="Message"
+                    onChange={(e) => {
+                      setNewMessage(e.target.value);
+                    }}
+                    onKeyDown = {handleKeyDown}
+                    onKeyUp = {handleKeyUp}
+                    value={newMessage}
+                    />
+                  }
+                  {!isfileselected &&
+                  <button onClick={handleSendTextMessage}>
                   <i className="fa fa-send-o send-button"></i>
                   </button>
+                  }
                 </div>
               </>
             ) : (

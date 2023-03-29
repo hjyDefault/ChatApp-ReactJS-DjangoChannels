@@ -37,3 +37,12 @@
       background-color: rgb(245, 241, 241);
       color: black;
   }
+
+  .image_file {
+    width: max-content;
+    height: max-content;
+    border: 1px solid black;
+    max-width: 400px;
+    max-height: 400px;
+
+  }
