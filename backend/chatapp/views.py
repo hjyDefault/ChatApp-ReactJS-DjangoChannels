@@ -62,7 +62,7 @@ def login(request):
         try:
             print(username)
             print(password)
-            # currentuser = authenticate(username=username, password=password)
+            # currentuser = authenticate(request,username=username, password=password)
             # print(currentuser)
             cur_user = CustomUser.objects.get(username=username,password=password)
             cur_user = UserSerializer(cur_user)
@@ -146,3 +146,29 @@ def get_online_users(request):
     online_users = online_users.data 
     json_data = json.dumps(online_users)
     return JsonResponse(json_data,safe=False)
+
+@csrf_exempt
+def register(request):
+    if request.method=="POST":
+        username = request.POST.get('userName')
+        password = request.POST.get('password')
+        firstname = request.POST.get('firstname')
+        lastname = request.POST.get('lastname')
+        email = request.POST.get('email')
+        profilephoto = request.FILES['profilephoto']
+        file_extension = get_file_extension(profilephoto.name)
+
+
+        customuser = CustomUser(online_status=True,username=username, password=password, first_name=firstname, last_name=lastname, email=email)        
+        customuser.save()
+        customuser = CustomUser.objects.get(username=username)
+        file_path = f"./profilephotos/profilephoto_{username}_{customuser.id}.{file_extension}"
+        default_storage.save(file_path,profilephoto)
+        profilephoto_url = BASE_SERVER_MEDIA_URL+file_path[2:]
+        customuser.profilepic=profilephoto_url
+        customuser.save()
+
+        user_native = UserSerializer(customuser).data
+        json_data = json.dumps(user_native)
+
+        return JsonResponse(json_data,safe=False)

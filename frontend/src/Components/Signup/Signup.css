@@ -1,0 +1,19 @@
+.register_button{
+    cursor: pointer;
+    height: 40px;
+    font-size: 20px;
+    width: 100px;
+    font-family: 'Montserrat';
+    background-color: rgb(0, 132, 255);
+    color: white;
+    border-radius: 0.8vh;
+    align-items: center;
+}
+.button_outer{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.File_Input{
+    color: white;
+}
