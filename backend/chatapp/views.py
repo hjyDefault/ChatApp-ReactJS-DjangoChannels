@@ -3,7 +3,7 @@ import json
 from rest_framework.parsers import JSONParser
 from django.shortcuts import render
 from django.core.files.storage import default_storage
-from .models import CustomUser, Group,ChatMessage
+from .models import CustomUser, Group,ChatMessage,SymmetricKey
 from django.views.decorators.csrf import csrf_exempt
 from .serializers import ChatMessageSerializer, UserSerializer
 from django.contrib.auth.models import User
@@ -86,9 +86,8 @@ def save_message(request):
         user2 = CustomUser.objects.get(id=user2_id)
 
         unique_group_id = get_unique_group_name(user1,user2)
-
         group = Group.objects.filter(unique_id=unique_group_id).first()
-
+        
         if group is None:
             group = Group(name=unique_group_id,unique_id=unique_group_id,user1=user1,user2=user2)
             group.save()
@@ -104,10 +103,10 @@ def save_message(request):
             file_name = unique_group_id+"_"+file_name+"_"+generate_random_string()+"."+file_extension
             default_storage.save(file_name,file_input)
             file_link = BASE_SERVER_MEDIA_URL + file_name
-            chat_message = ChatMessage(message_content=file_link,timestamp=str(datetime.datetime.now()),message_by=user1,group=group,message_type="file",file_type=file_extension)
+            chat_message = ChatMessage(message_content=file_link,timestamp=str(datetime.datetime.now()),message_by=user1,group=group,message_type="file",file_type=file_extension,received_by=user2)
         elif message_type=='text_message':
             text_message = request.POST.get('text')        
-            chat_message = ChatMessage(message_content=text_message,timestamp=str(datetime.datetime.now()),message_by=user1,group=group,message_type="text")
+            chat_message = ChatMessage(message_content=text_message,timestamp=str(datetime.datetime.now()),message_by=user1,group=group,message_type="text",received_by=user2)
         chat_message.save()
 
         return JsonResponse("Received",safe=False)

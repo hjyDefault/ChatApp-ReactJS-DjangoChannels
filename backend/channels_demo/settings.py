@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-d5f3#o!o9e@^=x&0aiaa29k)nm!f!ze)nf83t)t)#9b+@2398g
 DEBUG = True
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 CORS_ORIGIN_ALLOW_ALL = True
 

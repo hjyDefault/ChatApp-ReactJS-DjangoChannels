@@ -9,7 +9,7 @@ class ChatMessage(models.Model):
     group = models.ForeignKey('Group',on_delete=models.CASCADE)
     message_type = models.CharField(max_length=100)
     file_type = models.CharField(max_length=5,null=True,default="")
-    
+    received_by = models.ForeignKey(User,on_delete=models.CASCADE,related_name="received_by",null=True)
     def __str__(self) -> str:
         return self.message_by.username
 
@@ -26,3 +26,6 @@ class CustomUser(User):
     profilepic = models.URLField(max_length=500)
     online_status = models.BooleanField(default=False)
     last_seen = models.DateTimeField(default=datetime.datetime.now())
+
+class SymmetricKey(models.Model):
+    key = models.CharField(max_length=500)

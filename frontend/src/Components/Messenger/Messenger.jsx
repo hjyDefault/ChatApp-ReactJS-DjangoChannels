@@ -1,7 +1,8 @@
 import React,{useState,useRef,useEffect, useContext} from "react";
-import {useLocation } from "react-router-dom";
+import {json, useLocation } from "react-router-dom";
 import "./Messenger.css";
 import Message from "../Message/Message";
+import forge from 'node-forge';
 import Conversation from "../Conversation/Conversation";
 import userContext from "../../Context/UserContext/UserContext";
 import axios from "axios";
@@ -26,6 +27,9 @@ export default function Messenger() {
   const [selectedfile,setselectedfile] = useState(null)
   const [isTyping,setIsTyping] = useState(false)
   const [isonline,setIsOnline] = useState(false)
+  const [curr_users_privatekey, setcurr_users_privatekey] = useState(null)
+  const [opposite_users_publickey, setopposite_users_publickey] = useState(null)
+  const [opposite_users_privatekey, setopposite_users_privatekey] = useState(null)
   let timeoutId;
 
   const scrollRef = useRef();
@@ -65,8 +69,30 @@ export default function Messenger() {
     getUsers()
     connectOnlineStatusSocket()
     getOnlineUsers()
+    
   }, [])
 
+  useEffect(() => {
+    const getPrivatekey = () => {
+      let private_key_url = API_BASE_URL+"media/keys/private_rsa_"+currentUser.username+"_"+currentUser.id+".pem"
+      Promise.all([fetch(private_key_url)])
+      .then(responses => {
+        return Promise.all(responses.map(response => response.text()));
+      })
+      .then(pemStrings => {
+        const privateKeyPem = pemStrings[0];         
+        let privateKeyObject = forge.pki.privateKeyFromPem(privateKeyPem)
+        setcurr_users_privatekey(privateKeyObject)      
+      })
+      .catch(error => {
+        console.error(error);
+      });
+    }
+    if (currentUser)
+      getPrivatekey()
+
+  }, [currentUser])
+  
 
   
 
@@ -98,7 +124,7 @@ export default function Messenger() {
     }
     
   }
-
+  
   useEffect(() => {
     
     const getMessages = async() => {      
@@ -107,6 +133,22 @@ export default function Messenger() {
       setsocketConnection(socket)
       const res = await axios.post(API_BASE_URL+'chat/getMessages/',conversation_group)
       let messages_json_data = JSON.parse(res['data'])
+      for (let i = 0; i < messages_json_data.length; i++) {
+        
+        let obj = messages_json_data[i]
+        let decrypted_message = ""
+        if (obj['received_by']['id']==currentUser.id)
+        {
+          decrypted_message = decryptData(obj['message_content'],curr_users_privatekey)
+        }
+        else
+        {
+          decrypted_message = decryptData(obj['message_content'],opposite_users_privatekey)
+        }
+        obj['message_content']=decrypted_message
+        messages_json_data[i]=obj
+
+      }
       setMessages(messages_json_data)
     } 
 
@@ -119,8 +161,51 @@ export default function Messenger() {
         setIsOnline("Offline")
       }
     }
-    change_status()
-    getMessages()
+
+    const getPublicKey = () => {
+      let public_key_url = API_BASE_URL+"media/keys/public_rsa_"+currentChat.username+"_"+currentChat.id+".pem"
+      Promise.all([fetch(public_key_url)])
+      .then(responses => {
+        return Promise.all(responses.map(response => response.text()));
+      })
+      .then(pemStrings => {
+        const publicKeyPem = pemStrings[0];     
+        let publicKeyObject = forge.pki.publicKeyFromPem(publicKeyPem);
+        setopposite_users_publickey(publicKeyObject)      
+      })
+      .catch(error => {
+        console.error(error);
+      });
+    }
+
+    const getOppositeUsersPrivateKey = () => {
+      let private_key_url = API_BASE_URL+"media/keys/private_rsa_"+currentChat.username+"_"+currentChat.id+".pem"
+      Promise.all([fetch(private_key_url)])
+      .then(responses => {
+        return Promise.all(responses.map(response => response.text()));
+      })
+      .then(pemStrings => {
+        const privateKeyPem = pemStrings[0];         
+        let privateKeyObject = forge.pki.privateKeyFromPem(privateKeyPem)
+        setopposite_users_privatekey(privateKeyObject)      
+      })
+      .catch(error => {
+        console.error(error);
+      });
+
+    }
+
+    if (currentChat)
+    {  
+      getPublicKey()
+      getOppositeUsersPrivateKey()
+      change_status()
+      if(opposite_users_privatekey)
+          getMessages()
+    }
+    
+
+    
 
   }, [currentChat])
 
@@ -139,9 +224,19 @@ export default function Messenger() {
       console.log(json_incoming_message_data)
       if (json_incoming_message_data['websocket_message_type']=='userMessage')
       {
+          let decrypted_message = ""
+          if (json_incoming_message_data['received_by']['id']==currentUser.id)
+          {
+            decrypted_message = decryptData(json_incoming_message_data['message_content'],curr_users_privatekey)
+          } 
+          else
+          {
+            decrypted_message = decryptData(json_incoming_message_data['message_content'],opposite_users_privatekey)
+          }
+
           var new_incoming_message={
             'message_by':json_incoming_message_data['message_by']['id'],
-            'message_content':json_incoming_message_data['message_content'],
+            'message_content':decrypted_message,
             'message_type':json_incoming_message_data['message_type'],
             'file_type':json_incoming_message_data['file_type']
           }
@@ -224,7 +319,17 @@ export default function Messenger() {
     changeTypingStatus()
     
   }, [isTyping])
-  
+
+  function  encryptData(plainText, publicKeyObject) {
+    const encrypted = publicKeyObject.encrypt(plainText, 'RSA-OAEP');
+    return forge.util.encode64(encrypted);
+  }
+  function decryptData(encryptedText, privateKeyObject) {
+    const encrypted = forge.util.decode64(encryptedText);
+    const decrypted = privateKeyObject.decrypt(encrypted, 'RSA-OAEP');
+    return decrypted;
+  }
+
   const handleFileChange = (e) => {
       if(e.target.files.length>0)
       {
@@ -242,7 +347,8 @@ export default function Messenger() {
 
       e.preventDefault()
       let data = new FormData()
-      data.append('text',newMessage)
+      let encryptedText = encryptData(newMessage,opposite_users_publickey)
+      data.append('text',encryptedText)
       data.append('message_by',currentUser.id)
       data.append('received_by',currentChat.id)
       data.append('message_type','userMessage')
@@ -277,6 +383,9 @@ export default function Messenger() {
     setisfileselected(false)
 
   }
+
+
+
 
   return (
     <>

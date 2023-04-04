@@ -4,6 +4,7 @@ import Messenger from "./Components/Messenger/Messenger";
 import userContext from "./Context/UserContext/UserContext";
 import UserState from "./Context/UserContext/UserState";
 import Login from "./Components/Login/Login";
+import Test from "./Components/test/Test";
 function App() {
   const [currentLoggedInUser, setcurrentLoggedInUser] = useState(null)
   
@@ -13,6 +14,7 @@ function App() {
         <Routes>
           <Route exact path="/" element={<Login/>}/>
           <Route path="/Messenger/:userId" element={<Messenger/>} />
+          <Route path="/Test" element={<Test/>}/>
         </Routes>
       </BrowserRouter>
      

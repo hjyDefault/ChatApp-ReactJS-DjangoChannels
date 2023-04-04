@@ -3,6 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import CustomUser,ChatMessage
 from .serializers import UserSerializer
+from .crypto import generate_and_save_private_public_key_pair
 
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -30,7 +31,6 @@ def send_online_status(sender,instance,created,**kwargs):
         
 @receiver(post_save,sender=ChatMessage)
 def send_message_to_user(sender,instance,created,**kwargs):
-    print('Inside signal')
     channel_layer = get_channel_layer()
 
     data = {
@@ -39,7 +39,8 @@ def send_message_to_user(sender,instance,created,**kwargs):
         'timestamp':instance.timestamp,
         'message_by':((UserSerializer(instance.message_by)).data),
         'message_type':instance.message_type,
-        'file_type':instance.file_type
+        'file_type':instance.file_type,
+        'received_by':((UserSerializer(instance.received_by)).data)
     }
 
    
@@ -48,5 +49,11 @@ def send_message_to_user(sender,instance,created,**kwargs):
             'type':'send_chat_message',
             'value':json.dumps(data)
         })
+
+@receiver(post_save,sender=CustomUser)
+def generate_keys(sender,instance,created,**kwargs):
+    username = instance.username
+    userid = instance.id
+    generate_and_save_private_public_key_pair(username,userid)
 
     
